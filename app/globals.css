@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* ======================================================== */
+  /* MIMAR MODELS OFFICIAL BRAND PALETTE (Pantone 5415c)      */
+  /* ======================================================== */
+  --color-primary: #5d7f9c;        /* Mimar Primary Color (Pantone 5415c / #5d7f9c) */
+  --color-primary-dark: #48657f;   /* Darker shade of #5d7f9c for active/hover */
+  --color-secondary: #688096;      /* Muted Mimar slate for labels & metadata */
+  --color-background: #f2f5f8;     /* Light Mimar tint background */
+  --color-surface: #ffffff;        /* Pure white card surface */
+  --color-text: #1c2833;           /* Deep Mimar charcoal-navy text */
+  --color-accent: #b2825e;         /* Complementary Pantone 7510 U warm ochre */
+  --color-sand: #d5bfa9;           /* Complementary Pantone 4685 C warm sand */
+  --color-border: #d3dfe8;         /* Mimar primary light swatch border */
+
+  /* Complementary Status Swatches from Mimar Brand Sheet */
+  --color-done: #276359;           /* Pantone 561 C (Deep Forest Teal) */
+  --color-done-bg: #e6eeed;        /* Pantone 561 C light tint */
+  --color-pending: #b2825e;        /* Pantone 7510 U (Warm Ochre) */
+  --color-pending-bg: #f8f2ed;     /* Pantone 7510 U light tint */
+  --color-issue: #9f5b46;          /* Complementary Terracotta / Brick */
+  --color-issue-bg: #f5ece9;       /* Complementary Terracotta light tint */
+}
+
+body {
+  color: var(--color-text);
+  background-color: var(--color-background);
+  font-family: var(--font-brand), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  margin: 0;
+  padding: 0;
+}
+
+/* Large touch targets for field staff */
+button, a, input, select, textarea {
+  min-height: 44px;
+}
+
+/* Print Styles for Project Identification Sheet */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body {
+    background: var(--color-surface) !important;
+    color: var(--color-text) !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  @page {
+    margin: 8mm;
+    size: A4 landscape;
+  }
+}
