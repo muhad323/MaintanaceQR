@@ -1,4 +1,7 @@
 import crypto from "crypto";
+import fs from "fs";
+import os from "os";
+import path from "path";
 import {
   AuthUser,
   CreateProjectInput,
@@ -29,189 +32,62 @@ interface MockDataStore {
   nextAttachmentId: number;
 }
 
-const SAMPLE_MOCK_IMAGE_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-
-const INITIAL_PROJECTS: Project[] = [
-  {
-    id: 101,
-    name: "EMAAR - DUBAI OPERA HOUSE SCALE MODEL",
-    partner_id: [12, "Emaar Properties PJSC"],
-    user_id: [4, "TARIQ AL-SAYED"],
-    stage_id: [3, "In Progress"],
-    date_start: "2024-01-15",
-    date: "2026-11-13",
-    description:
-      "1:150 scale architectural physical model featuring illuminated auditorium ceiling and working motorized stage lift.",
-    x_qr_token: "proj_qr_dubai_opera_101",
-    x_work_order_no: "MM-10145",
-    x_project_manager: "TARIQ AL-SAYED",
-    x_programmer: "HASSAN RASHID",
-    x_scale: "1-150",
-    x_delivery_date: "13.11.2026",
-    x_base_size: "3.2M X 2.4M X 0.9M",
-    x_power_consumption: "350 WATTS",
-  },
-  {
-    id: 102,
-    name: "ETIHAD RAIL - NATIONAL NETWORK MASTERPLAN",
-    partner_id: [15, "Etihad Rail Company"],
-    user_id: [7, "MONA AL-KHATIB"],
-    stage_id: [3, "In Progress"],
-    date_start: "2023-09-01",
-    date: "2026-12-15",
-    description:
-      "1:500 scale terrain model with fiber optic dynamic train movement simulation and interactive track lighting.",
-    x_qr_token: "proj_qr_etihad_rail_102",
-    x_work_order_no: "MM-10288",
-    x_project_manager: "MONA AL-KHATIB",
-    x_programmer: "OMAR FAROOQ",
-    x_scale: "1-500",
-    x_delivery_date: "15.12.2026",
-    x_base_size: "4.5M X 2.8M X 1.0M",
-    x_power_consumption: "480 WATTS",
-  },
-  {
-    id: 103,
-    name: "EXPO CITY - AL WASL PLAZA DOME MODEL",
-    partner_id: [22, "Expo City Dubai"],
-    user_id: [4, "TARIQ AL-SAYED"],
-    stage_id: [2, "Initial Setup"],
-    date_start: "2024-03-10",
-    date: "2027-02-28",
-    description:
-      "Laser-sintered 3D printed steel lattice sphere with 360-degree micro-projector mapping rig.",
-    x_qr_token: "proj_qr_al_wasl_103",
-    x_work_order_no: "MM-10312",
-    x_project_manager: "TARIQ AL-SAYED",
-    x_programmer: "SALMAN KHALID",
-    x_scale: "1-200",
-    x_delivery_date: "28.02.2027",
-    x_base_size: "2.5M X 2.5M X 1.2M",
-    x_power_consumption: "420 WATTS",
-  },
-  {
-    id: 104,
-    name: "MIMAR MODELS - HQ SHOWCASE MODEL",
-    partner_id: [1, "Mimar Engineering LLC"],
-    user_id: [2, "ZAID QASIMI"],
-    stage_id: [4, "Testing & Handover"],
-    date_start: "2024-05-01",
-    date: "2026-08-31",
-    description:
-      "Acrylic and brushed brass interior cross-section showcase with internal LED strip lighting.",
-    x_qr_token: "proj_qr_mimar_hq_104",
-    x_work_order_no: "MM-10409",
-    x_project_manager: "ZAID QASIMI",
-    x_programmer: "HASSAN RASHID",
-    x_scale: "1-100",
-    x_delivery_date: "31.08.2026",
-    x_base_size: "1.8M X 1.5M X 0.9M",
-    x_power_consumption: "220 WATTS",
-  },
-  {
-    id: 105,
-    name: "ADGM - FINANCIAL CENTER MASTERPLAN",
-    partner_id: [31, "ADGM Authority"],
-    user_id: [9, "FATIMA AL-NUAIMI"],
-    stage_id: [3, "In Progress"],
-    date_start: "2024-02-01",
-    date: "2026-11-20",
-    description:
-      "Frosted acrylic towers with integrated fiber-optic floorplate lighting and touch-screen building directory.",
-    x_qr_token: "proj_qr_adgm_center_105",
-    x_work_order_no: "MM-10577",
-    x_project_manager: "FATIMA AL-NUAIMI",
-    x_programmer: "OMAR FAROOQ",
-    x_scale: "1-1000",
-    x_delivery_date: "20.11.2026",
-    x_base_size: "3M X 2M X 1M",
-    x_power_consumption: "300 WATTS",
-  },
-];
-
-const INITIAL_LOGS: MaintenanceLog[] = [
-  {
-    id: 1,
-    x_project_id: [101, "EMAAR - DUBAI OPERA HOUSE SCALE MODEL"],
-    x_note:
-      "Auditorium fiber-optic wiring inspected. Replaced faulty 12V LED driver under the stage deck.",
-    x_status: "done",
-    x_done_by: "Staff User",
-    x_date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3)
-      .toISOString()
-      .replace("T", " ")
-      .substring(0, 19),
-    photos: [
-      { id: 501, name: "led_driver_replacement.jpg", mimetype: "image/jpeg" },
-    ],
-  },
-  {
-    id: 2,
-    x_project_id: [101, "EMAAR - DUBAI OPERA HOUSE SCALE MODEL"],
-    x_note:
-      "Perimeter acrylic dust cover has minor surface scratching near the north entrance. Buffing kit needed.",
-    x_status: "pending",
-    x_done_by: "Admin User",
-    x_date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1)
-      .toISOString()
-      .replace("T", " ")
-      .substring(0, 19),
-    photos: [],
-  },
-  {
-    id: 3,
-    x_project_id: [102, "ETIHAD RAIL - NATIONAL NETWORK MASTERPLAN"],
-    x_note:
-      "Train track sector 3 power connector loose. Model trains stopping intermittently.",
-    x_status: "issue",
-    x_done_by: "Staff User",
-    x_date: new Date(Date.now() - 1000 * 60 * 60 * 12)
-      .toISOString()
-      .replace("T", " ")
-      .substring(0, 19),
-    photos: [
-      { id: 502, name: "track_connector_issue.jpg", mimetype: "image/jpeg" },
-    ],
-  },
-];
-
-const INITIAL_ATTACHMENTS: MockAttachment[] = [
-  {
-    id: 501,
-    res_model: "x_maintenance_log",
-    res_id: 1,
-    name: "led_driver_replacement.jpg",
-    mimetype: "image/jpeg",
-    datas: SAMPLE_MOCK_IMAGE_BASE64,
-  },
-  {
-    id: 502,
-    res_model: "x_maintenance_log",
-    res_id: 3,
-    name: "track_connector_issue.jpg",
-    mimetype: "image/jpeg",
-    datas: SAMPLE_MOCK_IMAGE_BASE64,
-  },
-];
-
 declare global {
   // eslint-disable-next-line no-var
-  var __projectQrStoreV2: MockDataStore | undefined;
+  var __projectQrFallbackMemStore: MockDataStore | undefined;
 }
 
-function getStore(): MockDataStore {
-  if (!globalThis.__projectQrStoreV2) {
-    globalThis.__projectQrStoreV2 = {
-      projects: JSON.parse(JSON.stringify(INITIAL_PROJECTS)),
-      logs: JSON.parse(JSON.stringify(INITIAL_LOGS)),
-      attachments: JSON.parse(JSON.stringify(INITIAL_ATTACHMENTS)),
-      nextProjectId: 106,
-      nextLogId: 10,
-      nextAttachmentId: 600,
-    };
+function getStoreFilePath(): string {
+  try {
+    const localPath = path.join(process.cwd(), ".mock-odoo-data.json");
+    fs.accessSync(process.cwd(), fs.constants.W_OK);
+    return localPath;
+  } catch {
+    return path.join(os.tmpdir(), "mimar-mock-odoo-data.json");
   }
-  return globalThis.__projectQrStoreV2;
+}
+
+function createEmptyStore(): MockDataStore {
+  return {
+    projects: [],
+    logs: [],
+    attachments: [],
+    nextProjectId: 1,
+    nextLogId: 1,
+    nextAttachmentId: 1,
+  };
+}
+
+function readStore(): MockDataStore {
+  const filePath = getStoreFilePath();
+  try {
+    if (fs.existsSync(filePath)) {
+      const raw = fs.readFileSync(filePath, "utf8");
+      const parsed = JSON.parse(raw) as MockDataStore;
+      if (parsed && Array.isArray(parsed.projects)) {
+        globalThis.__projectQrFallbackMemStore = parsed;
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.warn("[MockOdooService readStore fallback]:", err);
+  }
+
+  const fresh = createEmptyStore();
+  saveStore(fresh);
+  return fresh;
+}
+
+function saveStore(store: MockDataStore): void {
+  globalThis.__projectQrFallbackMemStore = store;
+  const filePath = getStoreFilePath();
+  try {
+    const tmpPath = `${filePath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(store, null, 2), "utf8");
+    fs.renameSync(tmpPath, filePath);
+  } catch (err) {
+    console.warn("[MockOdooService saveStore warning]:", err);
+  }
 }
 
 function makeQrToken(): string {
@@ -246,19 +122,19 @@ export class MockOdooService implements OdooService {
 
   async getProjectByToken(token: string): Promise<Project | null> {
     if (!token) return null;
-    const store = getStore();
+    const store = readStore();
     const cleanToken = token.trim();
     const project = store.projects.find((p) => p.x_qr_token === cleanToken);
     return project ? JSON.parse(JSON.stringify(project)) : null;
   }
 
   async listProjects(): Promise<Project[]> {
-    const store = getStore();
+    const store = readStore();
     return JSON.parse(JSON.stringify(store.projects));
   }
 
   async createProject(input: CreateProjectInput): Promise<Project> {
-    const store = getStore();
+    const store = readStore();
     const id = store.nextProjectId++;
     const token = input.generateQr ? makeQrToken() : null;
 
@@ -282,11 +158,12 @@ export class MockOdooService implements OdooService {
     };
 
     store.projects.unshift(newProject);
+    saveStore(store);
     return JSON.parse(JSON.stringify(newProject));
   }
 
   async updateProject(input: UpdateProjectInput): Promise<Project> {
-    const store = getStore();
+    const store = readStore();
     const project = store.projects.find((p) => p.id === input.id);
     if (!project) {
       throw new Error(`Project with ID ${input.id} not found.`);
@@ -307,11 +184,12 @@ export class MockOdooService implements OdooService {
       project.x_qr_token = makeQrToken();
     }
 
+    saveStore(store);
     return JSON.parse(JSON.stringify(project));
   }
 
   async getMaintenanceLogs(projectId: number): Promise<MaintenanceLog[]> {
-    const store = getStore();
+    const store = readStore();
     const filtered = store.logs.filter((log) => {
       const pid = Array.isArray(log.x_project_id)
         ? log.x_project_id[0]
@@ -342,7 +220,7 @@ export class MockOdooService implements OdooService {
     userName: string,
     photos?: PhotoUploadPayload[]
   ): Promise<MaintenanceLog> {
-    const store = getStore();
+    const store = readStore();
     const project = store.projects.find((p) => p.id === projectId);
     if (!project) {
       throw new Error(`Project with ID ${projectId} not found.`);
@@ -383,11 +261,12 @@ export class MockOdooService implements OdooService {
     };
 
     store.logs.unshift(newLog);
+    saveStore(store);
     return JSON.parse(JSON.stringify(newLog));
   }
 
   async ensureToken(projectId: number): Promise<string> {
-    const store = getStore();
+    const store = readStore();
     const project = store.projects.find((p) => p.id === projectId);
     if (!project) {
       throw new Error(`Project with ID ${projectId} not found.`);
@@ -399,17 +278,19 @@ export class MockOdooService implements OdooService {
 
     const generatedToken = makeQrToken();
     project.x_qr_token = generatedToken;
+    saveStore(store);
     return generatedToken;
   }
 
   async regenerateToken(projectId: number): Promise<string> {
-    const store = getStore();
+    const store = readStore();
     const project = store.projects.find((p) => p.id === projectId);
     if (!project) {
       throw new Error(`Project with ID ${projectId} not found.`);
     }
     const newToken = makeQrToken();
     project.x_qr_token = newToken;
+    saveStore(store);
     return newToken;
   }
 
@@ -418,7 +299,7 @@ export class MockOdooService implements OdooService {
     mimetype: string;
     filename: string;
   } | null> {
-    const store = getStore();
+    const store = readStore();
     const attachment = store.attachments.find((a) => a.id === attachmentId);
     if (!attachment) return null;
 

@@ -20,7 +20,8 @@ export function ProjectIdentificationCard({
   showQr = true,
 }: ProjectIdentificationCardProps) {
   const projectName = project.name || "—";
-  const workOrderNo = project.x_work_order_no || `MM-${project.id}`;
+  const workOrderNo =
+    project.x_work_order_no || (project.id ? `MM-${project.id}` : "—");
   const projectManager =
     project.x_project_manager || formatRel(project.user_id) || "—";
   const programmer = project.x_programmer || "—";

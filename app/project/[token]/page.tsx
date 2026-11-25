@@ -6,6 +6,9 @@ import { ProjectIdentificationCard } from "@/components/ProjectIdentificationCar
 import Link from "next/link";
 import { ArrowLeft, QrCode, User } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface ProjectPageProps {
   params: {
     token: string;

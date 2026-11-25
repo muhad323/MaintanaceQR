@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition, useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { addMaintenanceLogAction } from "@/app/actions/maintenance";
 import { MaintenanceStatus } from "@/lib/types";
 import { compressImage, CompressedImage } from "@/lib/imageCompress";
@@ -27,6 +28,7 @@ export function AddMaintenanceForm({
   token,
   userName = "",
 }: AddMaintenanceFormProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [doneBy, setDoneBy] = useState(userName);
   const [status, setStatus] = useState<MaintenanceStatus>("done");
@@ -143,6 +145,7 @@ export function AddMaintenanceForm({
         setNote("");
         setStatus("done");
         setPhotos([]);
+        router.refresh();
       }
     });
   };

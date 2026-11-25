@@ -51,13 +51,16 @@ export const viewport: Viewport = {
   themeColor: "#5d7f9c",
 };
 
-const EARLY_PWA_PROMPT_SCRIPT = `
-window.__pwaInstallPrompt = null;
+const EARLY_PWA_BOOT_SCRIPT = `
+window.__pwaInstallPrompt = window.__pwaInstallPrompt || null;
 window.addEventListener('beforeinstallprompt', function(e) {
   e.preventDefault();
   window.__pwaInstallPrompt = e;
   window.dispatchEvent(new Event('pwa-install-ready'));
 });
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function(){});
+}
 `;
 
 export default async function RootLayout({
@@ -72,7 +75,7 @@ export default async function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <script
-          dangerouslySetInnerHTML={{ __html: EARLY_PWA_PROMPT_SCRIPT }}
+          dangerouslySetInnerHTML={{ __html: EARLY_PWA_BOOT_SCRIPT }}
         />
       </head>
       <body className="min-h-dvh flex flex-col font-brand antialiased text-text bg-background overscroll-y-none">

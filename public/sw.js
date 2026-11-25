@@ -1,21 +1,24 @@
-const CACHE_NAME = "mimar-project-qr-v6";
+const CACHE_NAME = "mimar-project-qr-v7";
 const PRECACHE_ASSETS = [
   "/offline.html",
   "/manifest.json",
-  "/brand/logo.png",
-  "/brand/logo-mark.png",
   "/icons/icon-192.png",
-  "/icons/icon-384.png",
   "/icons/icon-512.png",
   "/icons/apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (event) => {
+  self.skipWaiting();
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_ASSETS))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(
+        PRECACHE_ASSETS.map((url) =>
+          fetch(url, { cache: "reload" }).then((res) => {
+            if (res.ok) return cache.put(url, res);
+          })
+        )
+      )
+    )
   );
 });
 

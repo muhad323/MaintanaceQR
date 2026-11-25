@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import QRCode from "qrcode";
 import Link from "next/link";
@@ -89,6 +90,7 @@ export function AdminDashboard({
   initialProjects,
   appBaseUrl,
 }: AdminDashboardProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<AdminTab>("projects");
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [qrImages, setQrImages] = useState<Record<string, string>>({});
@@ -217,6 +219,7 @@ export function AdminDashboard({
         prev.map((p) => (p.id === updated.id ? updated : p))
       );
       setPrintingProject(updated);
+      router.refresh();
 
       if (regenerateQr) {
         // Keep edit open so user immediately sees the newly generated QR inside Edit, or also expand sheet!
@@ -239,14 +242,14 @@ export function AdminDashboard({
 
   const draftPreviewProject: Project = createdProject || {
     id: 0,
-    name: name || "COMPANY AND PROJECT NAME",
-    x_work_order_no: workOrderNo || "MM-12345",
-    x_project_manager: projectManager || "SAMPLE NAME",
-    x_programmer: programmer || "SAMPLE NAME",
-    x_scale: scale || "1-1000",
-    x_delivery_date: deliveryDate || "13.11.2026",
-    x_base_size: baseSize || "3M X 2 M X 5 M",
-    x_power_consumption: powerConsumption || "300 WATTS",
+    name: name || "—",
+    x_work_order_no: workOrderNo || "—",
+    x_project_manager: projectManager || "—",
+    x_programmer: programmer || "—",
+    x_scale: scale || "—",
+    x_delivery_date: deliveryDate || "—",
+    x_base_size: baseSize || "—",
+    x_power_consumption: powerConsumption || "—",
     x_qr_token: null,
   };
 
@@ -280,6 +283,7 @@ export function AdminDashboard({
       setCreatedProject(newProj);
       setPrintingProject(newProj);
       setShowCreatePreview(true);
+      router.refresh();
       setFeedback({
         type: "success",
         text: "Project created and QR code generated. Ready to print or download.",
@@ -322,6 +326,7 @@ export function AdminDashboard({
       setExpandedIds((prev) =>
         prev.includes(project.id) ? prev : [...prev, project.id]
       );
+      router.refresh();
       setFeedback({
         type: "success",
         text: `QR generated for ${project.name}.`,
@@ -469,8 +474,22 @@ export function AdminDashboard({
           </div>
 
           {filteredProjects.length === 0 ? (
-            <div className="bg-surface rounded-2xl p-10 border border-border text-center text-sm text-secondary">
-              No matching projects found.
+            <div className="bg-surface rounded-2xl p-10 border border-border text-center space-y-4">
+              <p className="text-sm text-secondary">
+                {projects.length === 0
+                  ? "No projects created yet. Add your first project to generate its QR code and print sheet."
+                  : "No matching projects found."}
+              </p>
+              {projects.length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("create")}
+                  className="py-2.5 px-5 bg-primary hover:bg-primary-dark text-surface rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Create First Project</span>
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-3.5">
@@ -991,7 +1010,7 @@ export function AdminDashboard({
                     disabled={Boolean(createdProject)}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="COMPANY AND PROJECT NAME"
+                    placeholder="Enter project name"
                     className={inputClass}
                   />
                 </div>
@@ -1006,7 +1025,7 @@ export function AdminDashboard({
                     disabled={Boolean(createdProject)}
                     value={workOrderNo}
                     onChange={(e) => setWorkOrderNo(e.target.value)}
-                    placeholder="MM-12345"
+                    placeholder="Enter work order number"
                     className={inputClass}
                   />
                 </div>
@@ -1021,7 +1040,7 @@ export function AdminDashboard({
                     disabled={Boolean(createdProject)}
                     value={projectManager}
                     onChange={(e) => setProjectManager(e.target.value)}
-                    placeholder="SAMPLE NAME"
+                    placeholder="Enter name"
                     className={inputClass}
                   />
                 </div>
@@ -1036,7 +1055,7 @@ export function AdminDashboard({
                     disabled={Boolean(createdProject)}
                     value={programmer}
                     onChange={(e) => setProgrammer(e.target.value)}
-                    placeholder="SAMPLE NAME"
+                    placeholder="Enter name"
                     className={inputClass}
                   />
                 </div>
@@ -1051,7 +1070,7 @@ export function AdminDashboard({
                     disabled={Boolean(createdProject)}
                     value={scale}
                     onChange={(e) => setScale(e.target.value)}
-                    placeholder="1-1000"
+                    placeholder="Enter scale (e.g. 1-500)"
                     className={inputClass}
                   />
                 </div>
@@ -1066,7 +1085,7 @@ export function AdminDashboard({
                     disabled={Boolean(createdProject)}
                     value={deliveryDate}
                     onChange={(e) => setDeliveryDate(e.target.value)}
-                    placeholder="13.11.2026"
+                    placeholder="DD.MM.YYYY"
                     className={inputClass}
                   />
                 </div>
@@ -1081,7 +1100,7 @@ export function AdminDashboard({
                     disabled={Boolean(createdProject)}
                     value={baseSize}
                     onChange={(e) => setBaseSize(e.target.value)}
-                    placeholder="3M X 2 M X 5 M"
+                    placeholder="Enter base dimensions"
                     className={inputClass}
                   />
                 </div>
@@ -1096,7 +1115,7 @@ export function AdminDashboard({
                     disabled={Boolean(createdProject)}
                     value={powerConsumption}
                     onChange={(e) => setPowerConsumption(e.target.value)}
-                    placeholder="300 WATTS"
+                    placeholder="Enter power consumption"
                     className={inputClass}
                   />
                 </div>

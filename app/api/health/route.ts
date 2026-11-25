@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
+import { getOdooService } from "@/lib/odoo";
 import { RealOdooService } from "@/lib/odoo/real";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ export async function GET() {
   const useMock = process.env.USE_MOCK_ODOO === "true";
 
   if (useMock) {
+    const projects = await getOdooService().listProjects();
     return NextResponse.json({
       status: "ok",
       mode: "mock",
@@ -28,7 +30,7 @@ export async function GET() {
         "App is running in Mock Mode (USE_MOCK_ODOO=true). Set USE_MOCK_ODOO=false to connect to live Odoo instance.",
       odooUrl: process.env.ODOO_URL || "not configured",
       odooDb: process.env.ODOO_DB || "not configured",
-      mockProjectsCount: 5,
+      projectsCount: projects.length,
       customModel: "x_maintenance_log (Simulated)",
       customField: "project.project.x_qr_token (Simulated)",
       attachmentsModel: "ir.attachment (Simulated)",
