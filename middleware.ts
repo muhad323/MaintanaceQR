@@ -53,10 +53,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Root "/": send logged-in admin to /admin; everyone else with the link goes to /scan (the scanning camera)
+  // Root "/": send logged-in admin to /admin; non-admin renders / directly (200 OK for Android WebAPK start_url!)
   if (pathname === "/") {
-    const dest = session?.isAdmin ? "/admin" : "/scan";
-    return NextResponse.redirect(new URL(dest, request.url));
+    if (session?.isAdmin) {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
+    return NextResponse.next();
   }
 
   // /scan: accessible to anyone with the link (shows only scanning camera for non-admins)

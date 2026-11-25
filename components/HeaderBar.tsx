@@ -59,7 +59,7 @@ export function HeaderBar({ isLoggedIn, isAdmin }: HeaderBarProps) {
                 <Link
                   href="/scan"
                   className={`px-4 py-1.5 min-h-[36px] rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition ${
-                    pathname === "/scan" || pathname.startsWith("/project/")
+                    pathname === "/" || pathname === "/scan" || pathname.startsWith("/project/")
                       ? "bg-primary text-surface"
                       : "text-secondary hover:text-text"
                   }`}
@@ -89,7 +89,7 @@ export function HeaderBar({ isLoggedIn, isAdmin }: HeaderBarProps) {
                 <span className="hidden lg:inline">Logout</span>
               </button>
             </form>
-          ) : pathname === "/scan" ? (
+          ) : pathname === "/" || pathname === "/scan" ? (
             <Link
               href="/login"
               title="Admin Sign in"

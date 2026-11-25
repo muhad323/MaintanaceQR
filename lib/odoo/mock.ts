@@ -8,6 +8,7 @@ import {
   PhotoAttachment,
   PhotoUploadPayload,
   Project,
+  UpdateProjectInput,
 } from "../types";
 
 interface MockAttachment {
@@ -284,6 +285,31 @@ export class MockOdooService implements OdooService {
     return JSON.parse(JSON.stringify(newProject));
   }
 
+  async updateProject(input: UpdateProjectInput): Promise<Project> {
+    const store = getStore();
+    const project = store.projects.find((p) => p.id === input.id);
+    if (!project) {
+      throw new Error(`Project with ID ${input.id} not found.`);
+    }
+
+    project.name = input.name.trim();
+    project.user_id = [1, input.projectManager.trim()];
+    project.date = input.deliveryDate.trim();
+    project.x_work_order_no = input.workOrderNo.trim();
+    project.x_project_manager = input.projectManager.trim();
+    project.x_programmer = input.programmer.trim();
+    project.x_scale = input.scale.trim();
+    project.x_delivery_date = input.deliveryDate.trim();
+    project.x_base_size = input.baseSize.trim();
+    project.x_power_consumption = input.powerConsumption.trim();
+
+    if (input.regenerateQr) {
+      project.x_qr_token = makeQrToken();
+    }
+
+    return JSON.parse(JSON.stringify(project));
+  }
+
   async getMaintenanceLogs(projectId: number): Promise<MaintenanceLog[]> {
     const store = getStore();
     const filtered = store.logs.filter((log) => {
@@ -374,6 +400,17 @@ export class MockOdooService implements OdooService {
     const generatedToken = makeQrToken();
     project.x_qr_token = generatedToken;
     return generatedToken;
+  }
+
+  async regenerateToken(projectId: number): Promise<string> {
+    const store = getStore();
+    const project = store.projects.find((p) => p.id === projectId);
+    if (!project) {
+      throw new Error(`Project with ID ${projectId} not found.`);
+    }
+    const newToken = makeQrToken();
+    project.x_qr_token = newToken;
+    return newToken;
   }
 
   async getAttachmentData(attachmentId: number): Promise<{

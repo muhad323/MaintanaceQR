@@ -18,7 +18,6 @@ export const metadata: Metadata = {
   title: "Project QR | Mimar Models",
   description:
     "Mimar Models project identification, QR scanning, and field maintenance",
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -52,6 +51,15 @@ export const viewport: Viewport = {
   themeColor: "#5d7f9c",
 };
 
+const EARLY_PWA_PROMPT_SCRIPT = `
+window.__pwaInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  window.__pwaInstallPrompt = e;
+  window.dispatchEvent(new Event('pwa-install-ready'));
+});
+`;
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -61,6 +69,12 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className={`h-full bg-background ${brandFont.variable}`}>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <script
+          dangerouslySetInnerHTML={{ __html: EARLY_PWA_PROMPT_SCRIPT }}
+        />
+      </head>
       <body className="min-h-dvh flex flex-col font-brand antialiased text-text bg-background overscroll-y-none">
         <PwaServiceWorkerRegistrar />
         <OfflineBanner />

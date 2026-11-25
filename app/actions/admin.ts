@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getOdooService } from "@/lib/odoo";
 import { getSession } from "@/lib/session";
-import { createProjectSchema } from "@/lib/validation";
-import { CreateProjectInput, Project } from "@/lib/types";
+import { createProjectSchema, updateProjectSchema } from "@/lib/validation";
+import { CreateProjectInput, Project, UpdateProjectInput } from "@/lib/types";
 
 export interface AdminActionResult {
   success?: boolean;
@@ -45,6 +45,41 @@ export async function createProjectAction(
   }
 }
 
+export async function updateProjectAction(
+  rawInput: UpdateProjectInput
+): Promise<AdminActionResult> {
+  const session = await getSession();
+  if (!session || !session.isAdmin) {
+    return { error: "Unauthorized: Admin privileges required." };
+  }
+
+  const parsed = updateProjectSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return {
+      error: parsed.error.errors[0]?.message || "Invalid project fields.",
+    };
+  }
+
+  try {
+    const service = getOdooService();
+    const project = await service.updateProject(parsed.data);
+    revalidatePath("/admin");
+    if (project.x_qr_token) {
+      revalidatePath(`/project/${project.x_qr_token}`);
+    }
+    return {
+      success: true,
+      project,
+      token: project.x_qr_token || undefined,
+    };
+  } catch (err: unknown) {
+    console.error("[Update Project Action Error]:", err);
+    return {
+      error: err instanceof Error ? err.message : "Failed to update project",
+    };
+  }
+}
+
 export async function ensureProjectTokenAction(
   projectId: number
 ): Promise<AdminActionResult> {
@@ -62,6 +97,27 @@ export async function ensureProjectTokenAction(
     console.error("[Ensure Token Action Error]:", err);
     return {
       error: err instanceof Error ? err.message : "Failed to ensure token",
+    };
+  }
+}
+
+export async function regenerateProjectTokenAction(
+  projectId: number
+): Promise<AdminActionResult> {
+  const session = await getSession();
+  if (!session || !session.isAdmin) {
+    return { error: "Unauthorized: Admin privileges required." };
+  }
+
+  try {
+    const service = getOdooService();
+    const token = await service.regenerateToken(projectId);
+    revalidatePath("/admin");
+    return { success: true, token };
+  } catch (err: unknown) {
+    console.error("[Regenerate Token Action Error]:", err);
+    return {
+      error: err instanceof Error ? err.message : "Failed to generate new QR",
     };
   }
 }

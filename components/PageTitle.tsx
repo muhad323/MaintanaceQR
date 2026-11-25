@@ -6,7 +6,7 @@ export function PageTitle() {
   const pathname = usePathname();
 
   let title = "Project QR";
-  if (pathname === "/scan") {
+  if (pathname === "/" || pathname === "/scan") {
     title = "Scan Model QR";
   } else if (pathname.startsWith("/project/")) {
     title = "Project Identification";

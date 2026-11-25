@@ -8,6 +8,7 @@ import {
   PhotoAttachment,
   PhotoUploadPayload,
   Project,
+  UpdateProjectInput,
 } from "../types";
 
 interface JsonRpcResponse<T = unknown> {
@@ -414,6 +415,87 @@ export class RealOdooService implements OdooService {
     }
   }
 
+  async updateProject(input: UpdateProjectInput): Promise<Project> {
+    try {
+      const fields = await this.getProjectFields();
+      const existingList = await this.executeKw<Project[]>(
+        "project.project",
+        "read",
+        [[input.id]],
+        { fields }
+      );
+      if (!existingList || existingList.length === 0) {
+        throw new Error(`Project with ID ${input.id} not found in Odoo.`);
+      }
+      const existingHydrated = hydrateProjectSpec(existingList[0]);
+
+      const spec: EmbeddedSpec = {
+        workOrderNo: input.workOrderNo.trim(),
+        projectManager: input.projectManager.trim(),
+        programmer: input.programmer.trim(),
+        scale: input.scale.trim(),
+        deliveryDate: input.deliveryDate.trim(),
+        baseSize: input.baseSize.trim(),
+        powerConsumption: input.powerConsumption.trim(),
+      };
+
+      const cleanExistingDesc =
+        typeof existingHydrated.description === "string" &&
+        existingHydrated.description.trim()
+          ? `${existingHydrated.description.trim()}\n`
+          : "";
+
+      const updatePayload: Record<string, unknown> = {
+        name: input.name.trim(),
+        description: `${cleanExistingDesc}${encodeSpecInDescription(spec)}`,
+      };
+
+      let nextToken = existingHydrated.x_qr_token || null;
+      if (input.regenerateQr) {
+        const rawUuid = crypto.randomUUID().replace(/-/g, "");
+        nextToken = `pqr_${rawUuid.slice(0, 20)}`;
+        updatePayload.x_qr_token = nextToken;
+      }
+
+      if (this.supportedCustomFields?.has("x_work_order_no"))
+        updatePayload.x_work_order_no = spec.workOrderNo;
+      if (this.supportedCustomFields?.has("x_project_manager"))
+        updatePayload.x_project_manager = spec.projectManager;
+      if (this.supportedCustomFields?.has("x_programmer"))
+        updatePayload.x_programmer = spec.programmer;
+      if (this.supportedCustomFields?.has("x_scale"))
+        updatePayload.x_scale = spec.scale;
+      if (this.supportedCustomFields?.has("x_delivery_date"))
+        updatePayload.x_delivery_date = spec.deliveryDate;
+      if (this.supportedCustomFields?.has("x_base_size"))
+        updatePayload.x_base_size = spec.baseSize;
+      if (this.supportedCustomFields?.has("x_power_consumption"))
+        updatePayload.x_power_consumption = spec.powerConsumption;
+
+      await this.executeKw<boolean>("project.project", "write", [
+        [input.id],
+        updatePayload,
+      ]);
+
+      return {
+        ...existingHydrated,
+        id: input.id,
+        name: input.name.trim(),
+        x_qr_token: nextToken,
+        x_work_order_no: spec.workOrderNo,
+        x_project_manager: spec.projectManager,
+        x_programmer: spec.programmer,
+        x_scale: spec.scale,
+        x_delivery_date: spec.deliveryDate,
+        x_base_size: spec.baseSize,
+        x_power_consumption: spec.powerConsumption,
+      };
+    } catch (err) {
+      console.error("[RealOdooService updateProject error]:", err);
+      throw err;
+    }
+  }
+
   async getMaintenanceLogs(projectId: number): Promise<MaintenanceLog[]> {
     try {
       const logs = await this.executeKw<MaintenanceLog[]>(
@@ -561,6 +643,23 @@ export class RealOdooService implements OdooService {
       return generatedToken;
     } catch (err) {
       console.error("[RealOdooService ensureToken error]:", err);
+      throw err;
+    }
+  }
+
+  async regenerateToken(projectId: number): Promise<string> {
+    try {
+      const rawUuid = crypto.randomUUID().replace(/-/g, "");
+      const newToken = `pqr_${rawUuid.slice(0, 20)}`;
+
+      await this.executeKw<boolean>("project.project", "write", [
+        [projectId],
+        { x_qr_token: newToken },
+      ]);
+
+      return newToken;
+    } catch (err) {
+      console.error("[RealOdooService regenerateToken error]:", err);
       throw err;
     }
   }

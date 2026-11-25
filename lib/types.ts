@@ -32,6 +32,19 @@ export interface CreateProjectInput {
   generateQr?: boolean;
 }
 
+export interface UpdateProjectInput {
+  id: number;
+  name: string;
+  workOrderNo: string;
+  projectManager: string;
+  programmer: string;
+  scale: string;
+  deliveryDate: string;
+  baseSize: string;
+  powerConsumption: string;
+  regenerateQr?: boolean;
+}
+
 export interface PhotoAttachment {
   id: number;
   name: string;
@@ -74,6 +87,7 @@ export interface OdooService {
   getProjectByToken(token: string): Promise<Project | null>;
   listProjects(): Promise<Project[]>;
   createProject(input: CreateProjectInput): Promise<Project>;
+  updateProject(input: UpdateProjectInput): Promise<Project>;
   getMaintenanceLogs(projectId: number): Promise<MaintenanceLog[]>;
   addMaintenanceLog(
     projectId: number,
@@ -83,6 +97,7 @@ export interface OdooService {
     photos?: PhotoUploadPayload[]
   ): Promise<MaintenanceLog>;
   ensureToken(projectId: number): Promise<string>;
+  regenerateToken(projectId: number): Promise<string>;
   getAttachmentData(attachmentId: number): Promise<{
     data: Buffer;
     mimetype: string;

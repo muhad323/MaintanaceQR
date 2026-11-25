@@ -1,10 +1,11 @@
-const CACHE_NAME = "mimar-project-qr-v2";
+const CACHE_NAME = "mimar-project-qr-v6";
 const PRECACHE_ASSETS = [
   "/offline.html",
   "/manifest.json",
   "/brand/logo.png",
   "/brand/logo-mark.png",
   "/icons/icon-192.png",
+  "/icons/icon-384.png",
   "/icons/icon-512.png",
   "/icons/apple-touch-icon.png",
 ];
@@ -40,7 +41,6 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never cache dynamic API endpoints or Next.js RSC flight requests
   if (
     url.pathname.startsWith("/api/") ||
     url.searchParams.has("_rsc") ||
@@ -49,7 +49,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static brand, icon, font, and compiled Next assets: Stale-While-Revalidate
   if (
     url.pathname.startsWith("/brand/") ||
     url.pathname.startsWith("/icons/") ||
@@ -72,7 +71,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // HTML Document navigations: Network-First with branded offline fallback
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(async () => {

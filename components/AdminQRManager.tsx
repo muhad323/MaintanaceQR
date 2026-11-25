@@ -8,6 +8,7 @@ import { Project } from "@/lib/types";
 import {
   createProjectAction,
   ensureProjectTokenAction,
+  updateProjectAction,
 } from "@/app/actions/admin";
 import { ProjectIdentificationCard } from "./ProjectIdentificationCard";
 import {
@@ -25,6 +26,10 @@ import {
   EyeOff,
   ChevronDown,
   ChevronUp,
+  Pencil,
+  RefreshCw,
+  Save,
+  X,
 } from "lucide-react";
 
 const QRScanner = dynamic(
@@ -47,6 +52,24 @@ interface AdminDashboardProps {
 
 type AdminTab = "create" | "projects" | "scan";
 
+interface EditDraft {
+  id: number;
+  name: string;
+  workOrderNo: string;
+  projectManager: string;
+  programmer: string;
+  scale: string;
+  deliveryDate: string;
+  baseSize: string;
+  powerConsumption: string;
+}
+
+function formatRelName(val: unknown): string {
+  if (!val) return "";
+  if (Array.isArray(val) && val.length > 1) return String(val[1]);
+  return String(val);
+}
+
 export function AdminQRManager({
   projects: initialProjects,
   appBaseUrl,
@@ -68,7 +91,7 @@ export function AdminDashboard({
 }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>("projects");
   const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [qrImages, setQrImages] = useState<Record<number, string>>({});
+  const [qrImages, setQrImages] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState("");
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{
@@ -76,9 +99,10 @@ export function AdminDashboard({
     text: string;
   } | null>(null);
 
-  // Individually expanded/selected project IDs in the Projects tab (empty by default — nothing forced open)
+  // Individually expanded sheet IDs (collapsed by default)
   const [expandedIds, setExpandedIds] = useState<number[]>([]);
-  // Toggleable preview in Create Project tab
+  // Active editing project state
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
   const [showCreatePreview, setShowCreatePreview] = useState(true);
 
   // Create Project form state
@@ -92,7 +116,6 @@ export function AdminDashboard({
   const [powerConsumption, setPowerConsumption] = useState("");
 
   const [createdProject, setCreatedProject] = useState<Project | null>(null);
-  // Dedicated target only for @media print output
   const [printingProject, setPrintingProject] = useState<Project | null>(
     initialProjects[0] || null
   );
@@ -101,6 +124,7 @@ export function AdminDashboard({
     setProjects(initialProjects);
   }, [initialProjects]);
 
+  // Key QR images by `${project.id}:${project.x_qr_token}` so regenerating a QR updates immediately!
   useEffect(() => {
     let cancelled = false;
     async function buildQrs() {
@@ -109,7 +133,7 @@ export function AdminDashboard({
           ? window.location.origin
           : appBaseUrl;
       const cleanBase = origin.replace(/\/+$/, "");
-      const map: Record<number, string> = {};
+      const map: Record<string, string> = {};
 
       for (const proj of projects) {
         if (proj.x_qr_token) {
@@ -123,7 +147,7 @@ export function AdminDashboard({
                 light: "#ffffff",
               },
             });
-            map[proj.id] = dataUrl;
+            map[`${proj.id}:${proj.x_qr_token}`] = dataUrl;
           } catch (err) {
             console.error("QR generation failed:", err);
           }
@@ -139,12 +163,78 @@ export function AdminDashboard({
     };
   }, [projects, appBaseUrl]);
 
+  const getQrImage = (proj: Project | null | undefined): string | null => {
+    if (!proj || !proj.x_qr_token) return null;
+    return qrImages[`${proj.id}:${proj.x_qr_token}`] || null;
+  };
+
   const toggleProjectSheet = (projectId: number) => {
     setExpandedIds((prev) =>
       prev.includes(projectId)
         ? prev.filter((id) => id !== projectId)
         : [...prev, projectId]
     );
+  };
+
+  const handleStartEdit = (project: Project) => {
+    setFeedback(null);
+    setEditDraft({
+      id: project.id,
+      name: project.name || "",
+      workOrderNo: project.x_work_order_no || `MM-${project.id}`,
+      projectManager:
+        project.x_project_manager || formatRelName(project.user_id) || "",
+      programmer: project.x_programmer || "",
+      scale: project.x_scale || "",
+      deliveryDate:
+        project.x_delivery_date ||
+        (project.date ? String(project.date).slice(0, 10) : ""),
+      baseSize: project.x_base_size || "",
+      powerConsumption: project.x_power_consumption || "",
+    });
+  };
+
+  const handleSaveEdit = (regenerateQr: boolean) => {
+    if (!editDraft) return;
+    setFeedback(null);
+
+    startTransition(async () => {
+      const res = await updateProjectAction({
+        ...editDraft,
+        regenerateQr,
+      });
+
+      if (res.error || !res.project) {
+        setFeedback({
+          type: "error",
+          text: res.error || "Failed to update project.",
+        });
+        return;
+      }
+
+      const updated = res.project;
+      setProjects((prev) =>
+        prev.map((p) => (p.id === updated.id ? updated : p))
+      );
+      setPrintingProject(updated);
+
+      if (regenerateQr) {
+        // Keep edit open so user immediately sees the newly generated QR inside Edit, or also expand sheet!
+        setFeedback({
+          type: "success",
+          text: `Saved project updates and generated a brand-new QR code for ${updated.name}.`,
+        });
+      } else {
+        setEditDraft(null);
+        setExpandedIds((prev) =>
+          prev.includes(updated.id) ? prev : [...prev, updated.id]
+        );
+        setFeedback({
+          type: "success",
+          text: `Updated project details for ${updated.name}.`,
+        });
+      }
+    });
   };
 
   const draftPreviewProject: Project = createdProject || {
@@ -247,7 +337,7 @@ export function AdminDashboard({
   };
 
   const handleDownloadQrPng = (project: Project) => {
-    const dataUrl = qrImages[project.id];
+    const dataUrl = getQrImage(project);
     if (!dataUrl) return;
     const link = document.createElement("a");
     const slug = (project.x_work_order_no || project.name)
@@ -351,10 +441,9 @@ export function AdminDashboard({
         </div>
       )}
 
-      {/* TAB 1: ALL PROJECTS — Individual Select (Show) & Hide per Project */}
+      {/* TAB 1: ALL PROJECTS — Individual Select/Hide + Edit & Generate New QR */}
       {activeTab === "projects" && (
         <div className="space-y-4 no-print">
-          {/* Search Bar + Optional Hide All */}
           <div className="bg-surface rounded-2xl p-3.5 sm:p-4 border border-border flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-secondary absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -379,7 +468,6 @@ export function AdminDashboard({
             )}
           </div>
 
-          {/* Projects List with Individual Expand/Hide Identification Sheet */}
           {filteredProjects.length === 0 ? (
             <div className="bg-surface rounded-2xl p-10 border border-border text-center text-sm text-secondary">
               No matching projects found.
@@ -390,21 +478,24 @@ export function AdminDashboard({
                 const hasToken = Boolean(
                   project.x_qr_token && project.x_qr_token.trim().length > 0
                 );
-                const qrUrl = qrImages[project.id];
+                const qrUrl = getQrImage(project);
                 const isExpanded = expandedIds.includes(project.id);
+                const isEditing = editDraft?.id === project.id;
 
                 return (
                   <div
                     key={project.id}
                     className={`bg-surface rounded-2xl border transition overflow-hidden ${
-                      isExpanded
+                      isExpanded || isEditing
                         ? "border-primary ring-1 ring-primary/25"
                         : "border-border hover:border-primary/40"
                     }`}
                   >
                     {/* Project Summary Header Row */}
                     <div
-                      onClick={() => toggleProjectSheet(project.id)}
+                      onClick={() => {
+                        if (!isEditing) toggleProjectSheet(project.id);
+                      }}
                       className="p-4 sm:p-5 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4"
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
@@ -434,8 +525,10 @@ export function AdminDashboard({
                           </h3>
                           <div className="text-xs text-secondary mt-0.5 truncate">
                             Manager:{" "}
-                            {project.x_project_manager || "—"} · Scale:{" "}
-                            {project.x_scale || "—"} · Delivery:{" "}
+                            {project.x_project_manager ||
+                              formatRelName(project.user_id) ||
+                              "—"}{" "}
+                            · Scale: {project.x_scale || "—"} · Delivery:{" "}
                             {project.x_delivery_date || project.date || "—"}
                           </div>
                         </div>
@@ -446,6 +539,23 @@ export function AdminDashboard({
                         className="flex flex-wrap items-center gap-2 shrink-0"
                         onClick={(e) => e.stopPropagation()}
                       >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            isEditing
+                              ? setEditDraft(null)
+                              : handleStartEdit(project)
+                          }
+                          className={`py-2 px-3.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition ${
+                            isEditing
+                              ? "bg-primary text-surface border-primary"
+                              : "bg-background hover:bg-border/40 border-border text-text"
+                          }`}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>{isEditing ? "Editing" : "Edit"}</span>
+                        </button>
+
                         {!hasToken ? (
                           <button
                             type="button"
@@ -514,6 +624,251 @@ export function AdminDashboard({
                         )}
                       </div>
                     </div>
+
+                    {/* INLINE EDIT PROJECT + GENERATE NEW QR PANEL */}
+                    {isEditing && editDraft && (
+                      <div className="px-4 pb-5 sm:px-6 sm:pb-6 pt-5 bg-background/50 border-t border-border space-y-5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <h4 className="text-sm sm:text-base font-bold text-text">
+                              Edit Project Details & QR Code
+                            </h4>
+                            <p className="text-xs text-secondary mt-0.5">
+                              Update project specifications or generate a brand-new QR code for this model
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEditDraft(null)}
+                            className="p-2 min-h-0 text-secondary hover:text-text rounded-xl hover:bg-surface border border-transparent hover:border-border transition"
+                            aria-label="Close edit"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                          <div className="sm:col-span-2 lg:col-span-2">
+                            <label className="block text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
+                              Project Name *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={editDraft.name}
+                              onChange={(e) =>
+                                setEditDraft({
+                                  ...editDraft,
+                                  name: e.target.value,
+                                })
+                              }
+                              className={inputClass}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
+                              Work Order No *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={editDraft.workOrderNo}
+                              onChange={(e) =>
+                                setEditDraft({
+                                  ...editDraft,
+                                  workOrderNo: e.target.value,
+                                })
+                              }
+                              className={inputClass}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
+                              Project Manager *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={editDraft.projectManager}
+                              onChange={(e) =>
+                                setEditDraft({
+                                  ...editDraft,
+                                  projectManager: e.target.value,
+                                })
+                              }
+                              className={inputClass}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
+                              Programmer *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={editDraft.programmer}
+                              onChange={(e) =>
+                                setEditDraft({
+                                  ...editDraft,
+                                  programmer: e.target.value,
+                                })
+                              }
+                              className={inputClass}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
+                              Scale *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={editDraft.scale}
+                              onChange={(e) =>
+                                setEditDraft({
+                                  ...editDraft,
+                                  scale: e.target.value,
+                                })
+                              }
+                              className={inputClass}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
+                              Delivery Date *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={editDraft.deliveryDate}
+                              onChange={(e) =>
+                                setEditDraft({
+                                  ...editDraft,
+                                  deliveryDate: e.target.value,
+                                })
+                              }
+                              className={inputClass}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
+                              Base Size *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={editDraft.baseSize}
+                              onChange={(e) =>
+                                setEditDraft({
+                                  ...editDraft,
+                                  baseSize: e.target.value,
+                                })
+                              }
+                              className={inputClass}
+                            />
+                          </div>
+
+                          <div className="sm:col-span-2 lg:col-span-2">
+                            <label className="block text-xs font-semibold text-primary uppercase tracking-wider mb-1.5">
+                              Power Consumption *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={editDraft.powerConsumption}
+                              onChange={(e) =>
+                                setEditDraft({
+                                  ...editDraft,
+                                  powerConsumption: e.target.value,
+                                })
+                              }
+                              className={inputClass}
+                            />
+                          </div>
+                        </div>
+
+                        {/* QR Code Regeneration Box inside Edit */}
+                        <div className="bg-surface rounded-xl p-4 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            {hasToken && qrUrl ? (
+                              <div className="p-1.5 bg-surface border border-border rounded-xl shrink-0">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={qrUrl}
+                                  alt="Current QR"
+                                  className="w-16 h-16 object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-16 h-16 rounded-xl bg-background border border-dashed border-border flex items-center justify-center text-[10px] text-secondary text-center shrink-0 p-1">
+                                No QR
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-text">
+                                Model QR Code
+                              </div>
+                              <div className="text-[11px] font-mono text-secondary truncate mt-0.5">
+                                {project.x_qr_token || "No QR token assigned yet"}
+                              </div>
+                              <p className="text-[11px] text-secondary mt-1">
+                                Generating a new QR replaces the previous QR link for this project.
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleSaveEdit(true)}
+                            className="py-2.5 px-4 bg-background hover:bg-primary/10 border border-primary/40 text-primary rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 shrink-0 transition disabled:opacity-60"
+                          >
+                            {isPending ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-4 h-4" />
+                            )}
+                            <span>Generate New QR</span>
+                          </button>
+                        </div>
+
+                        {/* Save & Cancel Actions */}
+                        <div className="flex flex-wrap items-center justify-end gap-2.5 pt-1">
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => setEditDraft(null)}
+                            className="py-2.5 px-5 bg-surface hover:bg-background border border-border text-secondary hover:text-text rounded-xl text-xs sm:text-sm font-semibold transition"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleSaveEdit(false)}
+                            className="py-2.5 px-6 bg-primary hover:bg-primary-dark text-surface rounded-xl text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition disabled:opacity-60"
+                          >
+                            {isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Saving...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Save className="w-4 h-4" />
+                                <span>Save Changes</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Individual Collapsible Project Identification Sheet */}
                     {isExpanded && (
@@ -778,7 +1133,7 @@ export function AdminDashboard({
                     <span>Print Identification Sheet</span>
                   </button>
 
-                  {qrImages[createdProject.id] && (
+                  {getQrImage(createdProject) && (
                     <button
                       type="button"
                       onClick={() => handleDownloadQrPng(createdProject)}
@@ -823,9 +1178,7 @@ export function AdminDashboard({
 
               <ProjectIdentificationCard
                 project={draftPreviewProject}
-                qrDataUrl={
-                  createdProject ? qrImages[createdProject.id] || null : null
-                }
+                qrDataUrl={getQrImage(createdProject)}
                 showQr={true}
               />
             </div>
@@ -846,9 +1199,7 @@ export function AdminDashboard({
       <div className="hidden print:block print-only">
         <ProjectIdentificationCard
           project={activePrintCard}
-          qrDataUrl={
-            activePrintCard.id ? qrImages[activePrintCard.id] || null : null
-          }
+          qrDataUrl={getQrImage(activePrintCard)}
           showQr={true}
         />
       </div>

@@ -17,6 +17,19 @@ export const createProjectSchema = z.object({
   generateQr: z.boolean().optional(),
 });
 
+export const updateProjectSchema = z.object({
+  id: z.coerce.number().int().positive("Invalid project ID"),
+  name: z.string().trim().min(1, "Project Name is required").max(200),
+  workOrderNo: z.string().trim().min(1, "Work Order No is required").max(100),
+  projectManager: z.string().trim().min(1, "Project Manager is required").max(150),
+  programmer: z.string().trim().min(1, "Programmer is required").max(150),
+  scale: z.string().trim().min(1, "Scale is required").max(100),
+  deliveryDate: z.string().trim().min(1, "Delivery Date is required").max(100),
+  baseSize: z.string().trim().min(1, "Base Size is required").max(150),
+  powerConsumption: z.string().trim().min(1, "Power Consumption is required").max(100),
+  regenerateQr: z.boolean().optional(),
+});
+
 export const photoSchema = z.object({
   name: z.string().min(1).max(255),
   type: z

@@ -6,10 +6,10 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#f2f5f8",
   "theme_color": "#5d7f9c",
   "orientation": "any",
+  "prefer_related_applications": false,
   "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
